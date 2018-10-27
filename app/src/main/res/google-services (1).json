@@ -1,0 +1,99 @@
+{
+  "project_info": {
+    "project_number": "198979335024",
+    "firebase_url": "https://mr-fix-it-employee.firebaseio.com",
+    "project_id": "mr-fix-it-employee",
+    "storage_bucket": "mr-fix-it-employee.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:198979335024:android:1251374fa5c68740",
+        "android_client_info": {
+          "package_name": "com.example.rashidsaddique.mrfixitcustomers"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "198979335024-n1do8g3er9egd6nn59r53pc8of9mkkei.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.rashidsaddique.mrfixitcustomers",
+            "certificate_hash": "161b0b4c9ad209adf27556845ca96967b73a18dd"
+          }
+        },
+        {
+          "client_id": "198979335024-c005ouc364mb62occ3q3qe26u7oj6al7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIPJjGoCiCTkb4VYt0gel6rSmwWUGXJ_s"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "198979335024-c005ouc364mb62occ3q3qe26u7oj6al7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:198979335024:android:8d9113e3fe11a58f",
+        "android_client_info": {
+          "package_name": "com.example.rashidsaddique.mrfixitemployee"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "198979335024-vb1ql6e35del68u7umsv6jlql51hp4kc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.rashidsaddique.mrfixitemployee",
+            "certificate_hash": "161b0b4c9ad209adf27556845ca96967b73a18dd"
+          }
+        },
+        {
+          "client_id": "198979335024-c005ouc364mb62occ3q3qe26u7oj6al7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIPJjGoCiCTkb4VYt0gel6rSmwWUGXJ_s"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "198979335024-c005ouc364mb62occ3q3qe26u7oj6al7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
