@@ -116,7 +116,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                     }
 
                 }
-                break;
+               break;
         }
     }
 
@@ -161,19 +161,18 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                     //Add marker
                     if (mUserMarker != null)
                         mUserMarker.remove(); //Remove Already Marker
-                        mUserMarker = mMap.addMarker(new MarkerOptions().position(new LatLng(latitude, longitude)).title("Your Location"));
+                        mUserMarker = mMap.addMarker(new MarkerOptions().position(new LatLng(latitude, longitude)).title("You"));
 
 
                         //Move Camera to This position
 
                         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), 15.0f));
-
                 }
-
-                           // Log.d("Dear Customer",String.format("Your location was changed: @f/@f",latitude,longitude));
+                // Log.d("Dear Customer",String.format("Your location was changed: @f/@f",latitude,longitude));
             });
 
-        } else {
+        }
+        else {
             Log.d("ERROR", "Cannot get your location");
         }
 
@@ -277,6 +276,11 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     public void onMapReady(GoogleMap googleMap) {
 
       mMap = googleMap;
+        mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+        mMap.setTrafficEnabled(true);
+        mMap.setIndoorEnabled(false);
+        mMap.setBuildingsEnabled(false);
+        mMap.getUiSettings().setZoomControlsEnabled(true);
 
 
     }
