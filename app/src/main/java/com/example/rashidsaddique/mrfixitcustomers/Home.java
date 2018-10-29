@@ -6,6 +6,7 @@ import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.design.widget.BottomSheetDialogFragment;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
@@ -19,8 +20,11 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.example.rashidsaddique.mrfixitcustomers.Helper.CustomerInfoWindow;
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
 import com.google.android.gms.common.ConnectionResult;
@@ -34,6 +38,7 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -75,6 +80,11 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
     Marker mUserMarker;
 
+    //BottomSheet
+    ImageView imgExpandable;
+    BottomSheetCustomerFragrment mBottomSheet;
+    Button btnWorkRequest;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -96,10 +106,54 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
         mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+
+        //GeoFire
         ref = FirebaseDatabase.getInstance().getReference("Customers");
         geoFire = new GeoFire(ref);
 
-        setUpLocation();
+        //init view
+        imgExpandable = (ImageView) findViewById(R.id.imgExpandable);
+        mBottomSheet = BottomSheetCustomerFragrment.newInstance("Customer Bottom Sheet");
+        imgExpandable.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mBottomSheet.show(getSupportFragmentManager(),mBottomSheet.getTag());
+
+
+            }
+        });
+
+        btnWorkRequest = (Button)findViewById(R.id.btnRequest);
+        btnWorkRequest.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                requestWorkHere(FirebaseAuth.getInstance().getCurrentUser().getUid());
+
+            }
+        });
+
+                setUpLocation();
+    }
+
+    private void requestWorkHere(String uid) {
+        DatabaseReference dbRequest = FirebaseDatabase.getInstance().getReference("WorkRequest");
+        GeoFire mGeoFire = new GeoFire(dbRequest);
+        mGeoFire.setLocation(uid, new GeoLocation(mLastLocation.getLatitude(),mLastLocation.getLongitude()));
+
+        if(mUserMarker.isVisible())
+            mUserMarker.remove();
+
+        //Add new marker
+
+        mUserMarker = mMap.addMarker(new MarkerOptions()
+                    .title("Work Here")
+                    .position(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()))
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+
+        mUserMarker.showInfoWindow();
+
+        btnWorkRequest.setText("Getting Employee For You...");
+
     }
 
     @Override
@@ -281,7 +335,8 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         mMap.setIndoorEnabled(false);
         mMap.setBuildingsEnabled(false);
         mMap.getUiSettings().setZoomControlsEnabled(true);
-
+        mMap.getUiSettings().setZoomGesturesEnabled(true);
+        mMap.setInfoWindowAdapter(new CustomerInfoWindow(this));
 
     }
 
