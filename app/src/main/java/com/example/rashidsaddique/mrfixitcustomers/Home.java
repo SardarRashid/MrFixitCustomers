@@ -24,9 +24,13 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.example.rashidsaddique.mrfixitcustomers.Common.Common;
 import com.example.rashidsaddique.mrfixitcustomers.Helper.CustomerInfoWindow;
+import com.example.rashidsaddique.mrfixitcustomers.Model.Customers;
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
+import com.firebase.geofire.GeoQuery;
+import com.firebase.geofire.GeoQueryEventListener;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -43,16 +47,13 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
-public class Home extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,
-        OnMapReadyCallback,
-        GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener,
-        LocationListener
-{
+public class Home extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener, OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
 
     SupportMapFragment mapFragment;
 
@@ -71,7 +72,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     private Location mLastLocation;
 
 
-    private static int  UPDATE_INTERVAL = 5000;
+    private static int UPDATE_INTERVAL = 5000;
     private static int FATEST_INTERVAL = 3000;
     private static int DISPLACEMENT = 10;
 
@@ -85,13 +86,18 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     BottomSheetCustomerFragrment mBottomSheet;
     Button btnWorkRequest;
 
+    boolean isEmployeeFound = false;
+    String employeeId = "";
+    int radius = 1; //1km
+    int distance = 1;
+   private static final int LIMIT = 3;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-
 
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
@@ -107,9 +113,9 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        //GeoFire
-        ref = FirebaseDatabase.getInstance().getReference("Customers");
-        geoFire = new GeoFire(ref);
+        //GeoFire "not usable"
+//          ref = FirebaseDatabase.getInstance().getReference(Common.customer_location_tbl);
+//          geoFire = new GeoFire(ref);
 
         //init view
         imgExpandable = (ImageView) findViewById(R.id.imgExpandable);
@@ -117,13 +123,13 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         imgExpandable.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mBottomSheet.show(getSupportFragmentManager(),mBottomSheet.getTag());
+                mBottomSheet.show(getSupportFragmentManager(), mBottomSheet.getTag());
 
 
             }
         });
 
-        btnWorkRequest = (Button)findViewById(R.id.btnRequest);
+        btnWorkRequest = (Button) findViewById(R.id.btnRequest);
         btnWorkRequest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -132,104 +138,222 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
             }
         });
 
-                setUpLocation();
+        setUpLocation();
     }
 
     private void requestWorkHere(String uid) {
-        DatabaseReference dbRequest = FirebaseDatabase.getInstance().getReference("WorkRequest");
+        DatabaseReference dbRequest = FirebaseDatabase.getInstance().getReference(Common.work_request_tbl);
         GeoFire mGeoFire = new GeoFire(dbRequest);
-        mGeoFire.setLocation(uid, new GeoLocation(mLastLocation.getLatitude(),mLastLocation.getLongitude()));
+        mGeoFire.setLocation(uid, new GeoLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
 
-        if(mUserMarker.isVisible())
-            mUserMarker.remove();
+        if (mUserMarker.isVisible()) mUserMarker.remove();
 
         //Add new marker
 
-        mUserMarker = mMap.addMarker(new MarkerOptions()
-                    .title("Work Here")
-                    .position(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()))
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+        mUserMarker = mMap.addMarker(new MarkerOptions().title("Work Here").snippet("").position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude())).icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
 
         mUserMarker.showInfoWindow();
 
         btnWorkRequest.setText("Getting Employee For You...");
 
+        findEmployee();
+
+    }
+
+    private void findEmployee() {
+        DatabaseReference employees = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl);
+        GeoFire gfEmployees = new GeoFire(employees);
+        GeoQuery geoQuery = gfEmployees.queryAtLocation(new GeoLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude()), radius);
+        geoQuery.removeAllListeners();
+        geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
+            @Override
+            public void onKeyEntered(String key, GeoLocation location) {
+                //if found
+
+                if (!isEmployeeFound) {
+                    isEmployeeFound = true;
+                    employeeId = key;
+                    btnWorkRequest.setText("CALL EMPLOYEE");
+                    Toast.makeText(Home.this, "" + key, Toast.LENGTH_SHORT).show();
+                }
+
+            }
+
+            @Override
+            public void onKeyExited(String key) {
+
+            }
+
+            @Override
+            public void onKeyMoved(String key, GeoLocation location) {
+
+            }
+
+            @Override
+            public void onGeoQueryReady() {
+
+                //if employee still not found increase distance
+                if (!isEmployeeFound) {
+                    radius++;
+                    findEmployee();
+
+                }
+
+            }
+
+            @Override
+            public void onGeoQueryError(DatabaseError error) {
+
+            }
+        });
+
+
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        switch (requestCode)
-        {
+        switch (requestCode) {
             case MY_PERMISSION_REQUEST_CODE:
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED)
-                {
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     if (checkPlayServices()) {
                         buildGoogleApiClient();
                         createLocationRequest();
-                            displayLocation();
+                        displayLocation();
                     }
 
                 }
-               break;
+                break;
         }
     }
 
     private void setUpLocation() {
 
-        if(ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-                ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) !=PackageManager.PERMISSION_GRANTED )
-        {
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             //Request runtime permission
-
             ActivityCompat.requestPermissions(this, new String[]{
                     android.Manifest.permission.ACCESS_COARSE_LOCATION,
                     Manifest.permission.ACCESS_FINE_LOCATION
             },MY_PERMISSION_REQUEST_CODE);
-        }
-        else {
-            if (checkPlayServices())
-            {
+        } else {
+            if (checkPlayServices()) {
                 buildGoogleApiClient();
                 createLocationRequest();
-                    displayLocation();
+                displayLocation();
             }
         }
     }
 
     private void displayLocation() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
 
             return;
         }
         mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
         if (mLastLocation != null) {
+
             final double latitude = mLastLocation.getLatitude();
             final double longitude = mLastLocation.getLongitude();
 
+
             //Update to FireBase
 
-            geoFire.setLocation(FirebaseAuth.getInstance().getCurrentUser().getUid(), new GeoLocation(latitude, longitude), new GeoFire.CompletionListener() {
-                @Override
-                public void onComplete(String key, DatabaseError error) {
-
-                    //Add marker
-                    if (mUserMarker != null)
-                        mUserMarker.remove(); //Remove Already Marker
-                        mUserMarker = mMap.addMarker(new MarkerOptions().position(new LatLng(latitude, longitude)).title("You"));
+//            geoFire.setLocation(FirebaseAuth.getInstance().getCurrentUser().getUid(), new GeoLocation(latitude, longitude), new GeoFire.CompletionListener() {
+//                @Override
+//                public void onComplete(String key, DatabaseError error) {
 
 
-                        //Move Camera to This position
+            //Add marker
+            if (mUserMarker != null) mUserMarker.remove(); //Remove Already Marker
+            mUserMarker = mMap.addMarker(new MarkerOptions().position(new LatLng(latitude, longitude)).title("You"));
 
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), 15.0f));
+
+            //Move Camera to This position
+
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), 15.0f));
+
+            loadAllAvailableEmployees();
+
+            Log.d("Mr_Fix_It", String.format("Your location was changed: @f/@f", latitude, longitude));
+
+//        }
+//        });
+    }
+        else
+            {
+            Log.d("Mr_Fix_It", "Cannot get your location");
+        }
+
+
+    }
+
+    private void loadAllAvailableEmployees() {
+
+        //Load All Available Employees in 3km distance
+
+        DatabaseReference employeeLocation = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl);
+        GeoFire gf = new GeoFire(employeeLocation);
+
+        GeoQuery geoQuery = gf.queryAtLocation(new GeoLocation(mLastLocation.getLatitude(),mLastLocation.getLongitude()),distance);
+        geoQuery.removeAllListeners();
+
+        geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
+            @Override
+            public void onKeyEntered(String key, final GeoLocation location) {
+
+                //Use key to get email from database table user
+
+                FirebaseDatabase.getInstance().getReference(Common.employees_tbl)
+                        .child(key)
+                        .addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(DataSnapshot dataSnapshot) {
+                                Customers customers = dataSnapshot.getValue(Customers.class);
+
+                                //Add Employee on Map
+
+                                mMap.addMarker(new MarkerOptions()
+                                .position(new LatLng(location.latitude,location.longitude))
+                                .flat(true)
+                                .title(customers.getPhone())
+                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
+
+                            }
+
+                            @Override
+                            public void onCancelled(DatabaseError databaseError) {
+
+                            }
+                        });
+
+            }
+
+            @Override
+            public void onKeyExited(String key) {
+
+            }
+
+            @Override
+            public void onKeyMoved(String key, GeoLocation location) {
+
+            }
+
+            @Override
+            public void onGeoQueryReady() {
+                if(distance <= LIMIT) // Employee Available on 3km distance
+                {
+                    distance++;
+                    loadAllAvailableEmployees();
                 }
-                // Log.d("Dear Customer",String.format("Your location was changed: @f/@f",latitude,longitude));
-            });
 
-        }
-        else {
-            Log.d("ERROR", "Cannot get your location");
-        }
+            }
 
+            @Override
+            public void onGeoQueryError(DatabaseError error) {
+
+            }
+        });
 
     }
 
@@ -247,19 +371,16 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
-                .addApi(LocationServices.API)
-                .build();
+                .addApi(LocationServices.API).build();
         mGoogleApiClient.connect();
     }
 
     private boolean checkPlayServices() {
 
         int resultCode = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
-        if(resultCode != ConnectionResult.SUCCESS)
-        {
+        if (resultCode != ConnectionResult.SUCCESS) {
             if (GooglePlayServicesUtil.isUserRecoverableError(resultCode))
-                GooglePlayServicesUtil.getErrorDialog(resultCode,this,PLAY_SERVICE_RES_REQUEST)
-                        .show();
+                GooglePlayServicesUtil.getErrorDialog(resultCode, this, PLAY_SERVICE_RES_REQUEST).show();
             else {
                 Toast.makeText(this, "This device is not supported", Toast.LENGTH_SHORT).show();
                 finish();
@@ -329,7 +450,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     @Override
     public void onMapReady(GoogleMap googleMap) {
 
-      mMap = googleMap;
+        mMap = googleMap;
         mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
         mMap.setTrafficEnabled(true);
         mMap.setIndoorEnabled(false);
@@ -352,7 +473,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         {
             return;
         }
-        LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient,this);
+        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient,mLocationRequest,this);
     }
 
     @Override

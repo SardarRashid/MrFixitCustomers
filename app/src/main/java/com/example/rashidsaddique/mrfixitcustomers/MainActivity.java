@@ -15,6 +15,7 @@ import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.RelativeLayout;
 
+import com.example.rashidsaddique.mrfixitcustomers.Common.Common;
 import com.example.rashidsaddique.mrfixitcustomers.Model.Customers;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -59,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
 
             auth = FirebaseAuth.getInstance();
             db = FirebaseDatabase.getInstance();
-            users = db.getReference("Customer");
+            users = db.getReference(Common.customer_tbl);
             rootLyout =(RelativeLayout) findViewById(R.id.rootLayout);
 
             btnRegister = (Button) findViewById(R.id.btnRegister);
