@@ -115,7 +115,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
         //GeoFire "not usable"
 //          ref = FirebaseDatabase.getInstance().getReference(Common.customer_location_tbl);
-//          geoFire = new GeoFire(ref);
+//        geoFire = new GeoFire(ref);
 
         //init view
         imgExpandable = (ImageView) findViewById(R.id.imgExpandable);
@@ -129,7 +129,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
             }
         });
 
-        btnWorkRequest = (Button) findViewById(R.id.btnRequest);
+        btnWorkRequest = (Button) findViewById(R.id.btnWorkRequest);
         btnWorkRequest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -146,11 +146,16 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         GeoFire mGeoFire = new GeoFire(dbRequest);
         mGeoFire.setLocation(uid, new GeoLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
 
-        if (mUserMarker.isVisible()) mUserMarker.remove();
+        if (mUserMarker.isVisible())
+            mUserMarker.remove();
 
         //Add new marker
 
-        mUserMarker = mMap.addMarker(new MarkerOptions().title("Work Here").snippet("").position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude())).icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+        mUserMarker = mMap.addMarker(new MarkerOptions()
+                .title("Work Here")
+                .snippet("")
+                .position(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()))
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
 
         mUserMarker.showInfoWindow();
 
