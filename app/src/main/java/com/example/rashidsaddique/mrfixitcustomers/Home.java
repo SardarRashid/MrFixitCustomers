@@ -24,9 +24,15 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+
 import com.example.rashidsaddique.mrfixitcustomers.Common.Common;
 import com.example.rashidsaddique.mrfixitcustomers.Helper.CustomerInfoWindow;
 import com.example.rashidsaddique.mrfixitcustomers.Model.Customers;
+import com.example.rashidsaddique.mrfixitcustomers.Model.FCMResponse;
+import com.example.rashidsaddique.mrfixitcustomers.Model.Notification;
+import com.example.rashidsaddique.mrfixitcustomers.Model.Sender;
+import com.example.rashidsaddique.mrfixitcustomers.Model.Token;
+import com.example.rashidsaddique.mrfixitcustomers.Remote.IFCMService;
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
 import com.firebase.geofire.GeoQuery;
@@ -52,6 +58,12 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.iid.FirebaseInstanceId;
+import com.google.gson.Gson;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class Home extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener, OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
 
@@ -92,12 +104,20 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     int distance = 1;
    private static final int LIMIT = 3;
 
+   //Send Alert
+    IFCMService mService;
+
+    //Presence System
+    DatabaseReference employeesAvailable;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        mService = Common.getFCMServices();
 
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
@@ -112,10 +132,6 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
         mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-
-        //GeoFire "not usable"
-//          ref = FirebaseDatabase.getInstance().getReference(Common.customer_location_tbl);
-//        geoFire = new GeoFire(ref);
 
         //init view
         imgExpandable = (ImageView) findViewById(R.id.imgExpandable);
@@ -133,12 +149,69 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         btnWorkRequest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                requestWorkHere(FirebaseAuth.getInstance().getCurrentUser().getUid());
+                if(!isEmployeeFound)
+                    requestWorkHere(FirebaseAuth.getInstance().getCurrentUser().getUid());
+                else
+                    sendRequestToEmployee(employeeId);
 
             }
         });
 
         setUpLocation();
+
+        updateFirebaseToken();
+    }
+
+    private void updateFirebaseToken() {
+        FirebaseDatabase db = FirebaseDatabase.getInstance();
+        DatabaseReference tokens = db.getReference(Common.token_tbl);
+
+        Token token  = new Token(FirebaseInstanceId.getInstance().getToken());
+        tokens.child(FirebaseAuth.getInstance().getCurrentUser().getUid())
+                .setValue(token);
+
+    }
+
+    private void sendRequestToEmployee(String employeeId) {
+        DatabaseReference tokens = FirebaseDatabase.getInstance().getReference(Common.token_tbl);
+
+        tokens.orderByKey().equalTo(employeeId)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+                        for(DataSnapshot postSnapShot:dataSnapshot.getChildren())
+                        {
+                            Token token = postSnapShot.getValue(Token.class); //Get Token object from database with key
+
+                            //Make Raw playload and convert latlng to json
+                            String json_lat_lng = new Gson().toJson(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()));
+                            Notification data = new Notification("Mr_Fix_it",json_lat_lng); // send it to employee app
+                            Sender content = new Sender(token.getToken(),data); //Send this data to token
+
+                            mService.sendMessage(content)
+                                    .enqueue(new Callback<FCMResponse>() {
+                                        @Override
+                                        public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
+                                            if(response.body().success == 1)
+                                                Toast.makeText(Home.this, "Request sent", Toast.LENGTH_SHORT).show();
+                                            else
+                                                Toast.makeText(Home.this, "Failed", Toast.LENGTH_SHORT).show();
+                                        }
+
+                                        @Override
+                                        public void onFailure(Call<FCMResponse> call, Throwable t) {
+                                            Log.e("ERROR",t.getMessage());
+
+                                        }
+                                    });
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+
+                    }
+                });
     }
 
     private void requestWorkHere(String uid) {
@@ -258,6 +331,21 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
         if (mLastLocation != null) {
 
+            //Presence System
+            employeesAvailable = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl);
+            employeesAvailable.addValueEventListener(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    //change in employee list reloaad all
+                    loadAllAvailableEmployees();
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+
+                }
+            });
+
             final double latitude = mLastLocation.getLatitude();
             final double longitude = mLastLocation.getLongitude();
 
@@ -296,6 +384,10 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     private void loadAllAvailableEmployees() {
 
         //Load All Available Employees in 3km distance
+        mMap.clear(); //delete alla vailabel markers
+        //Load over location
+        mMap.addMarker(new MarkerOptions().position(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()))
+                              .title("You"));
 
         DatabaseReference employeeLocation = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl);
         GeoFire gf = new GeoFire(employeeLocation);
@@ -321,7 +413,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                                 mMap.addMarker(new MarkerOptions()
                                 .position(new LatLng(location.latitude,location.longitude))
                                 .flat(true)
-                                .title(customers.getPhone())
+                                .title("Phone : "+customers.getPhone())
                                 .icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
 
                             }
