@@ -2,6 +2,7 @@ package com.example.rashidsaddique.mrfixitcustomers;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -50,6 +51,7 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.firebase.auth.FirebaseAuth;
@@ -102,9 +104,9 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     String employeeId = "";
     int radius = 1; //1km
     int distance = 1;
-   private static final int LIMIT = 3;
+    private static final int LIMIT = 3;
 
-   //Send Alert
+    //Send Alert
     IFCMService mService;
 
     //Presence System
@@ -149,10 +151,9 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         btnWorkRequest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(!isEmployeeFound)
+                if (!isEmployeeFound)
                     requestWorkHere(FirebaseAuth.getInstance().getCurrentUser().getUid());
-                else
-                    sendRequestToEmployee(employeeId);
+                else sendRequestToEmployee(employeeId);
 
             }
         });
@@ -166,52 +167,48 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         FirebaseDatabase db = FirebaseDatabase.getInstance();
         DatabaseReference tokens = db.getReference(Common.token_tbl);
 
-        Token token  = new Token(FirebaseInstanceId.getInstance().getToken());
-        tokens.child(FirebaseAuth.getInstance().getCurrentUser().getUid())
-                .setValue(token);
+        Token token = new Token(FirebaseInstanceId.getInstance().getToken());
+        tokens.child(FirebaseAuth.getInstance().getCurrentUser().getUid()).setValue(token);
 
     }
 
     private void sendRequestToEmployee(String employeeId) {
         DatabaseReference tokens = FirebaseDatabase.getInstance().getReference(Common.token_tbl);
 
-        tokens.orderByKey().equalTo(employeeId)
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(DataSnapshot dataSnapshot) {
-                        for(DataSnapshot postSnapShot:dataSnapshot.getChildren())
-                        {
-                            Token token = postSnapShot.getValue(Token.class); //Get Token object from database with key
+        tokens.orderByKey().equalTo(employeeId).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                for (DataSnapshot postSnapShot : dataSnapshot.getChildren()) {
+                    Token token = postSnapShot.getValue(Token.class); //Get Token object from database with key
 
-                            //Make Raw playload and convert latlng to json
-                            String json_lat_lng = new Gson().toJson(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()));
-                            Notification data = new Notification("Mr_Fix_it",json_lat_lng); // send it to employee app
-                            Sender content = new Sender(token.getToken(),data); //Send this data to token
+                    //Make Raw playload and convert latlng to json
+                    String json_lat_lng = new Gson().toJson(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
+                    String customerToken = FirebaseInstanceId.getInstance().getToken();
+                    Notification data = new Notification(customerToken,json_lat_lng); // send it to employee app
+                    Sender content = new Sender(token.getToken(), data); //Send this data to token
 
-                            mService.sendMessage(content)
-                                    .enqueue(new Callback<FCMResponse>() {
-                                        @Override
-                                        public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
-                                            if(response.body().success == 1)
-                                                Toast.makeText(Home.this, "Request sent", Toast.LENGTH_SHORT).show();
-                                            else
-                                                Toast.makeText(Home.this, "Failed", Toast.LENGTH_SHORT).show();
-                                        }
-
-                                        @Override
-                                        public void onFailure(Call<FCMResponse> call, Throwable t) {
-                                            Log.e("ERROR",t.getMessage());
-
-                                        }
-                                    });
+                    mService.sendMessage(content).enqueue(new Callback<FCMResponse>() {
+                        @Override
+                        public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
+                            if (response.body().success == 1)
+                                Toast.makeText(Home.this, "Request sent", Toast.LENGTH_SHORT).show();
+                            else Toast.makeText(Home.this, "Failed", Toast.LENGTH_SHORT).show();
                         }
-                    }
 
-                    @Override
-                    public void onCancelled(DatabaseError databaseError) {
+                        @Override
+                        public void onFailure(Call<FCMResponse> call, Throwable t) {
+                            Log.e("ERROR", t.getMessage());
 
-                    }
-                });
+                        }
+                    });
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
     }
 
     private void requestWorkHere(String uid) {
@@ -219,16 +216,11 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         GeoFire mGeoFire = new GeoFire(dbRequest);
         mGeoFire.setLocation(uid, new GeoLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
 
-        if (mUserMarker.isVisible())
-            mUserMarker.remove();
+        if (mUserMarker.isVisible()) mUserMarker.remove();
 
         //Add new marker
 
-        mUserMarker = mMap.addMarker(new MarkerOptions()
-                .title("Work Here")
-                .snippet("")
-                .position(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()))
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+        mUserMarker = mMap.addMarker(new MarkerOptions().title("Work Here").snippet("").position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude())).icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
 
         mUserMarker.showInfoWindow();
 
@@ -306,13 +298,9 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
     private void setUpLocation() {
 
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-                ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             //Request runtime permission
-            ActivityCompat.requestPermissions(this, new String[]{
-                    android.Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-            },MY_PERMISSION_REQUEST_CODE);
+            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, MY_PERMISSION_REQUEST_CODE);
         } else {
             if (checkPlayServices()) {
                 buildGoogleApiClient();
@@ -323,8 +311,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     }
 
     private void displayLocation() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
 
             return;
         }
@@ -337,7 +324,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
                     //change in employee list reloaad all
-                    loadAllAvailableEmployees();
+                    loadAllAvailableEmployees(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
                 }
 
                 @Override
@@ -356,43 +343,34 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 //                @Override
 //                public void onComplete(String key, DatabaseError error) {
 
-
-            //Add marker
-            if (mUserMarker != null) mUserMarker.remove(); //Remove Already Marker
-            mUserMarker = mMap.addMarker(new MarkerOptions().position(new LatLng(latitude, longitude)).title("You"));
-
-
-            //Move Camera to This position
-
-            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), 15.0f));
-
-            loadAllAvailableEmployees();
+            loadAllAvailableEmployees(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
 
             Log.d("Mr_Fix_It", String.format("Your location was changed: @f/@f", latitude, longitude));
 
 //        }
 //        });
-    }
-        else
-            {
+        } else {
             Log.d("Mr_Fix_It", "Cannot get your location");
         }
 
 
     }
 
-    private void loadAllAvailableEmployees() {
+    private void loadAllAvailableEmployees(final LatLng location) {
 
-        //Load All Available Employees in 3km distance
-        mMap.clear(); //delete alla vailabel markers
-        //Load over location
-        mMap.addMarker(new MarkerOptions().position(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()))
-                              .title("You"));
+        //Add marker
+        mMap.clear();
+        mUserMarker = mMap.addMarker(new MarkerOptions().icon(BitmapDescriptorFactory.fromResource(R.drawable.marker)).position(location).title(String.format("You")));
+
+
+        //Move Camera to This position
+
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15.0f));
 
         DatabaseReference employeeLocation = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl);
         GeoFire gf = new GeoFire(employeeLocation);
 
-        GeoQuery geoQuery = gf.queryAtLocation(new GeoLocation(mLastLocation.getLatitude(),mLastLocation.getLongitude()),distance);
+        GeoQuery geoQuery = gf.queryAtLocation(new GeoLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude()), distance);
         geoQuery.removeAllListeners();
 
         geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
@@ -401,28 +379,22 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
                 //Use key to get email from database table user
 
-                FirebaseDatabase.getInstance().getReference(Common.employees_tbl)
-                        .child(key)
-                        .addListenerForSingleValueEvent(new ValueEventListener() {
-                            @Override
-                            public void onDataChange(DataSnapshot dataSnapshot) {
-                                Customers customers = dataSnapshot.getValue(Customers.class);
+                FirebaseDatabase.getInstance().getReference(Common.employees_tbl).child(key).addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+                        Customers customers = dataSnapshot.getValue(Customers.class);
 
-                                //Add Employee on Map
+                        //Add Employee on Map
 
-                                mMap.addMarker(new MarkerOptions()
-                                .position(new LatLng(location.latitude,location.longitude))
-                                .flat(true)
-                                .title("Phone : "+customers.getPhone())
-                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
+                        mMap.addMarker(new MarkerOptions().position(new LatLng(location.latitude, location.longitude)).flat(true).title("Phone : " + customers.getPhone()).icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
 
-                            }
+                    }
 
-                            @Override
-                            public void onCancelled(DatabaseError databaseError) {
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
 
-                            }
-                        });
+                    }
+                });
 
             }
 
@@ -438,10 +410,10 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
             @Override
             public void onGeoQueryReady() {
-                if(distance <= LIMIT) // Employee Available on 3km distance
+                if (distance <= LIMIT) // Employee Available on 3km distance
                 {
                     distance++;
-                    loadAllAvailableEmployees();
+                    loadAllAvailableEmployees(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
                 }
 
             }
@@ -465,10 +437,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     }
 
     private void buildGoogleApiClient() {
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .addApi(LocationServices.API).build();
+        mGoogleApiClient = new GoogleApiClient.Builder(this).addConnectionCallbacks(this).addOnConnectionFailedListener(this).addApi(LocationServices.API).build();
         mGoogleApiClient.connect();
     }
 
@@ -547,6 +516,14 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     @Override
     public void onMapReady(GoogleMap googleMap) {
 
+        try {
+            boolean isSuccess = googleMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.style_map));
+            if (!isSuccess) Log.e("ERROR", "Map style load failed..");
+        } catch (Resources.NotFoundException ex) {
+            ex.printStackTrace();
+        }
+
+
         mMap = googleMap;
         mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
         mMap.setTrafficEnabled(true);
@@ -565,12 +542,10 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     }
 
     private void startLocationUpdates() {
-        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) !=PackageManager.PERMISSION_GRANTED &&
-                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=PackageManager.PERMISSION_GRANTED )
-        {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient,mLocationRequest,this);
+        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
     }
 
     @Override
