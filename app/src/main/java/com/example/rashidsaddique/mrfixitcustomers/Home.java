@@ -41,9 +41,14 @@ import com.firebase.geofire.GeoQueryEventListener;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.places.AutocompleteFilter;
+import com.google.android.gms.location.places.Place;
+import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
+import com.google.android.gms.location.places.ui.PlaceSelectionListener;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -51,6 +56,7 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -62,6 +68,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.iid.FirebaseInstanceId;
 import com.google.gson.Gson;
+import com.google.maps.android.SphericalUtil;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -111,6 +118,10 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
     //Presence System
     DatabaseReference employeesAvailable;
+    PlaceAutocompleteFragment place_location,place_workLoation;
+    AutocompleteFilter typeFilter;
+
+    String mPlaceLocation,mPlaceWorkLocation;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -137,15 +148,6 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
         //init view
         imgExpandable = (ImageView) findViewById(R.id.imgExpandable);
-        mBottomSheet = BottomSheetCustomerFragrment.newInstance("Customer Bottom Sheet");
-        imgExpandable.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mBottomSheet.show(getSupportFragmentManager(), mBottomSheet.getTag());
-
-
-            }
-        });
 
         btnWorkRequest = (Button) findViewById(R.id.btnWorkRequest);
         btnWorkRequest.setOnClickListener(new View.OnClickListener() {
@@ -157,6 +159,53 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
             }
         });
+
+        place_workLoation = (PlaceAutocompleteFragment)getFragmentManager().findFragmentById(R.id.place_workLocation);
+        place_location = (PlaceAutocompleteFragment)getFragmentManager().findFragmentById(R.id.place_location);
+        typeFilter = new AutocompleteFilter.Builder()
+                .setTypeFilter(AutocompleteFilter.TYPE_FILTER_ADDRESS)
+                .setTypeFilter(3)
+                .build();
+
+        //Event
+        place_location.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+            @Override
+            public void onPlaceSelected(Place place) {
+                mPlaceLocation = place.getAddress().toString();
+                mMap.clear();
+
+                //Add marker  at new location
+                mUserMarker = mMap.addMarker(new MarkerOptions().position(place.getLatLng())
+                                  .icon(BitmapDescriptorFactory.defaultMarker())
+                                  .title("Customer Location"));
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(),15.0f));
+
+            }
+
+            @Override
+            public void onError(Status status) {
+
+            }
+        });
+        place_workLoation.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+            @Override
+            public void onPlaceSelected(Place place) {
+                mPlaceWorkLocation = place.getAddress().toString();
+                mMap.addMarker(new MarkerOptions().position(place.getLatLng())
+                               .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(),15.0f));
+
+                //Show Information in bottom
+                BottomSheetCustomerFragrment mBottomSheet = BottomSheetCustomerFragrment.newInstance(mPlaceLocation,mPlaceWorkLocation);
+                mBottomSheet.show(getSupportFragmentManager(),mBottomSheet.getTag());
+            }
+
+            @Override
+            public void onError(Status status) {
+
+            }
+        });
+
 
         setUpLocation();
 
@@ -197,7 +246,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
                         @Override
                         public void onFailure(Call<FCMResponse> call, Throwable t) {
-                            Log.e("ERROR", t.getMessage());
+                            Log.e("Fix_it_ERROR", t.getMessage());
 
                         }
                     });
@@ -244,7 +293,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                     isEmployeeFound = true;
                     employeeId = key;
                     btnWorkRequest.setText("CALL EMPLOYEE");
-                    Toast.makeText(Home.this, "" + key, Toast.LENGTH_SHORT).show();
+                    //Toast.makeText(Home.this, "" + key, Toast.LENGTH_SHORT).show();
                 }
 
             }
@@ -263,10 +312,14 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
             public void onGeoQueryReady() {
 
                 //if employee still not found increase distance
-                if (!isEmployeeFound) {
+                if (!isEmployeeFound && radius < LIMIT) {
                     radius++;
                     findEmployee();
-
+                }
+                else
+                {
+                    Toast.makeText(Home.this, "No Employee Available Near Your Location", Toast.LENGTH_SHORT).show();
+                    btnWorkRequest.setText("SEND REQUEST");
                 }
 
             }
@@ -318,6 +371,28 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
         if (mLastLocation != null) {
 
+
+            //Create LatLng from mLastLocation and this is center point
+            LatLng center = new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude());
+            //distance in metters
+            //heading 0 is north side, 90 is east , 180 is south and 270 is west
+            LatLng northSide = SphericalUtil.computeOffset(center,100000,0);
+            LatLng southSide = SphericalUtil.computeOffset(center,100000,180);
+
+
+            LatLngBounds bounds = LatLngBounds.builder()
+                    .include(northSide)
+                    .include(southSide)
+                    .build();
+
+            place_location.setBoundsBias(bounds);
+            place_location.setFilter(typeFilter);
+
+            place_workLoation.setBoundsBias(bounds);
+            place_workLoation.setFilter(typeFilter);
+
+
+
             //Presence System
             employeesAvailable = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl);
             employeesAvailable.addValueEventListener(new ValueEventListener() {
@@ -349,20 +424,16 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
 //        }
 //        });
-        } else {
+        } else
             Log.d("Mr_Fix_It", "Cannot get your location");
-        }
-
-
     }
 
     private void loadAllAvailableEmployees(final LatLng location) {
 
         //Add marker
         mMap.clear();
-        mUserMarker = mMap.addMarker(new MarkerOptions().icon(BitmapDescriptorFactory.fromResource(R.drawable.marker)).position(location).title(String.format("You")));
-
-
+        mMap.addMarker(new MarkerOptions().position(location)
+                .title(("You")));
         //Move Camera to This position
 
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15.0f));
@@ -370,7 +441,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         DatabaseReference employeeLocation = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl);
         GeoFire gf = new GeoFire(employeeLocation);
 
-        GeoQuery geoQuery = gf.queryAtLocation(new GeoLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude()), distance);
+        GeoQuery geoQuery = gf.queryAtLocation(new GeoLocation(location.latitude,location.longitude), distance);
         geoQuery.removeAllListeners();
 
         geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
@@ -379,15 +450,20 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
                 //Use key to get email from database table user
 
-                FirebaseDatabase.getInstance().getReference(Common.employees_tbl).child(key).addListenerForSingleValueEvent(new ValueEventListener() {
+                FirebaseDatabase.getInstance().getReference(Common.employees_tbl)
+                        .child(key)
+                        .addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
                         Customers customers = dataSnapshot.getValue(Customers.class);
 
                         //Add Employee on Map
 
-                        mMap.addMarker(new MarkerOptions().position(new LatLng(location.latitude, location.longitude)).flat(true).title("Phone : " + customers.getPhone()).icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
-
+                        mMap.addMarker(new MarkerOptions()
+                                .position(new LatLng(location.latitude, location.longitude))
+                                .flat(true)
+                                .title("Phone : " + customers.getPhone())
+                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
                     }
 
                     @Override
@@ -413,7 +489,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                 if (distance <= LIMIT) // Employee Available on 3km distance
                 {
                     distance++;
-                    loadAllAvailableEmployees(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
+                    loadAllAvailableEmployees(location);
                 }
 
             }

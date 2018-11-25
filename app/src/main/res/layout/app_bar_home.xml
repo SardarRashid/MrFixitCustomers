@@ -52,7 +52,7 @@
                    />
 
                <fragment
-                   android:id="@+id/places_location"
+                   android:id="@+id/place_location"
                    android:layout_weight="5"
                    android:layout_width="0dp"
                    android:layout_height="wrap_content"
@@ -74,20 +74,20 @@
                android:layout_width="match_parent"
                android:layout_height="wrap_content">
 
-               <!--<ImageView-->
-                   <!--android:layout_weight="1"-->
-                   <!--android:layout_gravity="center_vertical"-->
-                   <!--android:src="@drawable/ic_map_black_24dp"-->
-                   <!--android:layout_width="0dp"-->
-                   <!--android:layout_height="wrap_content"-->
-                   <!--/>-->
+               <ImageView
+                   android:layout_weight="1"
+                   android:layout_gravity="center_vertical"
+                   android:src="@drawable/ic_map_black_24dp"
+                   android:layout_width="0dp"
+                   android:layout_height="wrap_content"
+                   />
 
-               <!--<fragment-->
-                   <!--android:id="@+id/places_destination"-->
-                   <!--android:layout_weight="5"-->
-                   <!--android:layout_width="0dp"-->
-                   <!--android:layout_height="wrap_content"-->
-                   <!--android:name="com.google.android.gms.location.places.ui.PlaceAutocompleteFragment"/>-->
+               <fragment
+                   android:id="@+id/place_workLocation"
+                   android:layout_weight="5"
+                   android:layout_width="0dp"
+                   android:layout_height="wrap_content"
+                   android:name="com.google.android.gms.location.places.ui.PlaceAutocompleteFragment"/>
 
            </LinearLayout>
 
