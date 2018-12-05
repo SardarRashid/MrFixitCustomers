@@ -1,16 +1,16 @@
 package com.example.rashidsaddique.mrfixitcustomers.Model;
 
 public class Customers {
-    private String name,email,phone,password;
+    private String name,phone,avtarUrl,rates;
 
     public Customers() {
     }
 
-    public Customers(String name, String email, String phone, String password) {
+    public Customers(String name, String phone, String avtarUrl, String rates) {
         this.name = name;
-        this.email = email;
         this.phone = phone;
-        this.password = password;
+        this.avtarUrl = avtarUrl;
+        this.rates = rates;
     }
 
     public String getName() {
@@ -21,14 +21,6 @@ public class Customers {
         this.name = name;
     }
 
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
     public String getPhone() {
         return phone;
     }
@@ -37,11 +29,19 @@ public class Customers {
         this.phone = phone;
     }
 
-    public String getPassword() {
-        return password;
+    public String getAvtarUrl() {
+        return avtarUrl;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
+    public void setAvtarUrl(String avtarUrl) {
+        this.avtarUrl = avtarUrl;
+    }
+
+    public String getRates() {
+        return rates;
+    }
+
+    public void setRates(String rates) {
+        this.rates = rates;
     }
 }

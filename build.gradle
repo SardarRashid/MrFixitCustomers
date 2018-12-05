@@ -32,6 +32,13 @@ allprojects {
 
                 }
     }
+
+    repositories {
+        mavenLocal()
+        jcenter()
+        mavenCentral()
+    }
+
 }
 
 task clean(type: Delete) {
