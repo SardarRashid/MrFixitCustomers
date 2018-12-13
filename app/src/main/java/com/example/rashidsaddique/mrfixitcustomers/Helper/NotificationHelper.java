@@ -55,7 +55,7 @@ public class NotificationHelper extends ContextWrapper {
                 .setAutoCancel(true)
                 .setSound(soundUri)
                 .setContentIntent(contentIntent)
-                .setSmallIcon(R.drawable.ic_man);
+                .setSmallIcon(R.drawable.car);
 
     }
 }

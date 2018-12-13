@@ -2,10 +2,15 @@ package com.example.rashidsaddique.mrfixitcustomers;
 
 import android.Manifest;
 import android.app.ProgressDialog;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Build;
@@ -13,6 +18,7 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AlertDialog;
 import android.text.TextUtils;
 import android.util.Log;
@@ -32,6 +38,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 
+import com.arsy.maps_library.MapRipple;
 import com.example.rashidsaddique.mrfixitcustomers.Common.Common;
 import com.example.rashidsaddique.mrfixitcustomers.Helper.CustomerInfoWindow;
 import com.example.rashidsaddique.mrfixitcustomers.Model.Customers;
@@ -98,7 +105,7 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 public class Home extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,
-        OnMapReadyCallback, GoogleMap.OnInfoWindowClickListener {
+        OnMapReadyCallback, GoogleMap.OnInfoWindowClickListener, ValueEventListener {
 
     SupportMapFragment mapFragment;
 
@@ -127,7 +134,8 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     DatabaseReference ref;
     GeoFire geoFire;
 
-    Marker mUserMarker, markerWorkLocation;
+    Marker mUserMarker;
+    Marker markerWorkLocation;
 
     //BottomSheet
     //ImageView imgExpandable;
@@ -157,12 +165,31 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     FirebaseStorage storage;
     StorageReference storageReference;
 
+    //Man Animation
+    MapRipple mapRipple;
+
     //Employee type
     ImageView Plumber,Ac,Painter,Electration;
+
     boolean isPlumber= true;
-    boolean isAc = true;
-    boolean isPainter = true;
-    boolean isElectration = true;
+
+
+    private BroadcastReceiver mCancelBroadCast = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            btnWorkRequest.setText("Send Request");
+            btnWorkRequest.setEnabled(true);
+
+            Common.employeeId = "";
+            Common.isEmployeeFound = false;
+
+            if (mapRipple.isAnimationRunning())
+                mapRipple.stopRippleMapAnimation();
+
+            mUserMarker.hideInfoWindow();
+
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -170,6 +197,13 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         setContentView(R.layout.activity_home);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        LocalBroadcastManager.getInstance(this)
+                .registerReceiver(mCancelBroadCast,new IntentFilter(Common.CANCEL_BROADCAST_STRING));
+
+        //Register for arrived
+        LocalBroadcastManager.getInstance(this)
+                .registerReceiver(mCancelBroadCast,new IntentFilter(Common.BROADCAST_WORK_END));
 
         mService = Common.getFCMServices();
 
@@ -208,31 +242,52 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
             @Override
             public void onClick(View v) {
                 isPlumber = true;
+                if (isPlumber)
+                {
+                    Plumber.setImageResource(R.drawable.plumber);
+                    Painter.setImageResource(R.drawable.painter);
+                    Electration.setImageResource(R.drawable.electrations);
+                    Ac.setImageResource(R.drawable.ac);
+                }
+                else
+                {
+                    Plumber.setImageResource(R.drawable.plumber);
+                    Painter.setImageResource(R.drawable.painter);
+                    Electration.setImageResource(R.drawable.electrations);
+                    Ac.setImageResource(R.drawable.ac);
+                }
                 mMap.clear();
+                if (employeesAvailable != null)
+                    employeesAvailable.removeEventListener(Home.this);
+                employeesAvailable = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl).child(isPlumber?"Plumber":"Painter");
+                employeesAvailable.addValueEventListener(Home.this);
                 loadAllAvailableEmployees(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()));
             }
         });
-        Electration.setOnClickListener(new View.OnClickListener() {
+
+       Painter.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                isElectration = true;
+                isPlumber = false;
+                if (isPlumber)
+                {
+                    Plumber.setImageResource(R.drawable.plumber);
+                    Painter.setImageResource(R.drawable.painter);
+                    Electration.setImageResource(R.drawable.electrations);
+                    Ac.setImageResource(R.drawable.ac);
+                }
+                else
+                {
+                    Plumber.setImageResource(R.drawable.plumber);
+                    Painter.setImageResource(R.drawable.painter);
+                    Electration.setImageResource(R.drawable.electrations);
+                    Ac.setImageResource(R.drawable.ac);
+                }
                 mMap.clear();
-                loadAllAvailableEmployees(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()));
-            }
-        });
-        Ac.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                isAc = true;
-                mMap.clear();
-                loadAllAvailableEmployees(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()));
-            }
-        });
-        Painter.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                isPainter = true;
-                mMap.clear();
+                if (employeesAvailable != null)
+                    employeesAvailable.removeEventListener(Home.this);
+                employeesAvailable = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl).child(isPlumber?"Plumber":"Painter");
+                employeesAvailable.addValueEventListener(Home.this);
                 loadAllAvailableEmployees(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()));
             }
         });
@@ -261,6 +316,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                         @Override
                         public void onSuccess(Account account) {
                             requestWorkHere(account.getId());
+
                         }
 
                         @Override
@@ -268,8 +324,10 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
                         }
                     });
-                } else
-                    Common.sendRequestToEmployee(Common.employeeId,mService,getBaseContext(),mLastLocation);
+                } else {
+                    btnWorkRequest.setEnabled(false);
+                    Common.sendRequestToEmployee(Common.employeeId, mService, getBaseContext(), Common.mLastLocation);
+                }
 
             }
         });
@@ -347,15 +405,37 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     private void requestWorkHere(String uid) {
         DatabaseReference dbRequest = FirebaseDatabase.getInstance().getReference(Common.work_request_tbl);
         GeoFire mGeoFire = new GeoFire(dbRequest);
-        mGeoFire.setLocation(uid, new GeoLocation(Common.mLastLocation.getLatitude(),Common.mLastLocation.getLongitude()));
+        mGeoFire.setLocation(uid, new GeoLocation(Common.mLastLocation.getLatitude(), Common.mLastLocation.getLongitude()),
+                new GeoFire.CompletionListener() {
+            @Override
+            public void onComplete(String key, DatabaseError error) {
 
-        if (mUserMarker.isVisible()) mUserMarker.remove();
+            }
+        });
+
+//        if (mUserMarker.isVisible())
+//            mUserMarker.remove();
 
         //Add new marker
 
-        mUserMarker = mMap.addMarker(new MarkerOptions().title("Work Here").snippet("").position(new LatLng(Common.mLastLocation.getLatitude(),Common.mLastLocation.getLongitude())).icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+        mUserMarker = mMap.addMarker(new MarkerOptions()
+                .title("Work Here").snippet("")
+                .position(new LatLng(Common.mLastLocation.getLatitude(), Common.mLastLocation.getLongitude()))
+                .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker)));
 
         mUserMarker.showInfoWindow();
+
+        //Animation
+        mapRipple = new MapRipple(mMap, new LatLng(Common.mLastLocation.getLatitude(), Common.mLastLocation.getLongitude()),this);
+        mapRipple.withNumberOfRipples(3);
+        mapRipple.withDistance(500);
+        mapRipple.withRippleDuration(1000);
+        mapRipple.withFillColor(Color.BLUE);
+        mapRipple.withStrokeColor(Color.BLACK);
+        mapRipple.withStrokewidth(10);
+        mapRipple.withTransparency(0.5f);
+
+        mapRipple.startRippleMapAnimation();
 
         btnWorkRequest.setText("Getting Employee For You...");
 
@@ -364,9 +444,14 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     }
 
     private void findEmployee() {
-        DatabaseReference employees = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl);
-        GeoFire gfEmployees = new GeoFire(employees);
-        GeoQuery geoQuery = gfEmployees.queryAtLocation(new GeoLocation(Common.mLastLocation.getLatitude(), Common.mLastLocation.getLongitude()), radius);
+        DatabaseReference employeeLocation;
+        if (isPlumber)
+            employeeLocation = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl).child("Plumber");
+        else
+            employeeLocation =FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl).child("Painter");
+        GeoFire gf = new GeoFire(employeeLocation);
+        final GeoQuery geoQuery = gf.queryAtLocation(new GeoLocation(Common.mLastLocation.getLatitude(),Common.mLastLocation.getLongitude()),radius);
+
         geoQuery.removeAllListeners();
         geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
             @Override
@@ -403,6 +488,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                     if (!Common.isEmployeeFound) {
                         Toast.makeText(Home.this, "No Employee Available Near Your Location", Toast.LENGTH_SHORT).show();
                         btnWorkRequest.setText("SEND REQUEST");
+                        geoQuery.removeAllListeners();
                     }
                 }
 
@@ -498,19 +584,9 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
 
                     //Presence System
-                    employeesAvailable = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl);
-                    employeesAvailable.addValueEventListener(new ValueEventListener() {
-                        @Override
-                        public void onDataChange(DataSnapshot dataSnapshot) {
-                            //change in employee list reloaad all
-                            loadAllAvailableEmployees(new LatLng(Common.mLastLocation.getLatitude(), Common.mLastLocation.getLongitude()));
-                        }
-
-                        @Override
-                        public void onCancelled(DatabaseError databaseError) {
-
-                        }
-                    });
+                    //only for two values plumber and painter..
+                    employeesAvailable = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl).child(isPlumber?"Plumber":"Painter");
+                    employeesAvailable.addValueEventListener(Home.this);
 
                     final double latitude = Common.mLastLocation.getLatitude();
                     final double longitude = Common.mLastLocation.getLongitude();
@@ -548,11 +624,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         DatabaseReference employeeLocation = null;
         if(isPlumber)
             employeeLocation = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl).child("Plumber");
-        else if(isElectration)
-            employeeLocation = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl).child("Electration");
-        else if (isAc)
-            employeeLocation = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl).child("Ac");
-        else if(isPainter)
+        else
             employeeLocation = FirebaseDatabase.getInstance().getReference(Common.employees_location_tbl).child("Painter");
         GeoFire gf = new GeoFire(employeeLocation);
 
@@ -571,14 +643,21 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                         Customers customers = dataSnapshot.getValue(Customers.class);
 
                         //Add Employee on Map
-
-                        mMap.addMarker(new MarkerOptions().position(new LatLng(location.latitude, location.longitude))
-                                .flat(true)
-                                .title(customers.getName())
-                                .snippet("Employee ID: " + dataSnapshot.getKey())
-                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
-                    }
-
+                        if (isPlumber) {
+                            if (customers.getEmployeeType().equals("Plumber")) {
+                                mMap.addMarker(new MarkerOptions()
+                                        .position(new LatLng(location.latitude, location.longitude))
+                                        .flat(true).title(customers.getName())
+                                        .snippet("Employee ID: " + dataSnapshot.getKey())
+                                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
+                            }
+                        }
+                         else {
+                            if (customers.getEmployeeType().equals("Painter")) {
+                                mMap.addMarker(new MarkerOptions().position(new LatLng(location.latitude, location.longitude)).flat(true).title(customers.getName()).snippet("Employee ID: " + dataSnapshot.getKey()).icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
+                            }
+                        }
+                            }
                     @Override
                     public void onCancelled(DatabaseError databaseError) {
 
@@ -888,7 +967,6 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                 if (markerWorkLocation != null) markerWorkLocation.remove();
                 markerWorkLocation = mMap.addMarker(new MarkerOptions().icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)).position(latLng).title("Work Location"));
                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15.0f));
-
                 //Show bottom Sheet
                 BottomSheetCustomerFragrment mBottomSheet = BottomSheetCustomerFragrment.newInstance(String.format("%f,%f", Common.mLastLocation.getLatitude(), Common.mLastLocation.getLongitude()),
                         String.format("%f , %f", latLng.latitude, latLng.longitude), true);
@@ -928,5 +1006,21 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         }
 
 
+    }
+
+    @Override
+    public void onDataChange(DataSnapshot dataSnapshot) {
+        loadAllAvailableEmployees(new LatLng(Common.mLastLocation.getLatitude(),Common.mLastLocation.getLongitude()));
+    }
+
+    @Override
+    public void onCancelled(DatabaseError databaseError) {
+
+    }
+
+    @Override
+    protected void onDestroy() {
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mCancelBroadCast);
+        super.onDestroy();
     }
 }

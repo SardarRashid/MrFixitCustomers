@@ -1,16 +1,17 @@
 package com.example.rashidsaddique.mrfixitcustomers.Model;
 
 public class Customers {
-    private String name,phone,avtarUrl,rates;
+    private String name,phone,avtarUrl,rates,employeeType;
 
     public Customers() {
     }
 
-    public Customers(String name, String phone, String avtarUrl, String rates) {
+    public Customers(String name, String phone, String avtarUrl, String rates, String employeeType) {
         this.name = name;
         this.phone = phone;
         this.avtarUrl = avtarUrl;
         this.rates = rates;
+        this.employeeType = employeeType;
     }
 
     public String getName() {
@@ -43,5 +44,13 @@ public class Customers {
 
     public void setRates(String rates) {
         this.rates = rates;
+    }
+
+    public String getEmployeeType() {
+        return employeeType;
+    }
+
+    public void setEmployeeType(String employeeType) {
+        this.employeeType = employeeType;
     }
 }
